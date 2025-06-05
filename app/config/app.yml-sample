@@ -75,8 +75,12 @@ MONITOR:
 #················································
 CACHE:
   ENABLED: true
-  IP: 127.0.0.1     # REDIS SERVER IP
-  PORT: 6379        # REDIS SERVER PORT
+  TLS: true
+  #IP: 127.0.0.1     # REDIS DEFAULT SERVER IP
+  #PORT: 6379        # REDIS DEFAULT SERVER PORT
+  HOST: <ENV.REDIS_HOST>
+  PORT: <ENV.REDIS_PORT>
+  USER: <ENV.REDIS_USER>
   PASS: <ENV.REDIS_PASS>
 
 #················································

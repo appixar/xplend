@@ -205,7 +205,7 @@ class Http extends Xplend
         else {
             if ($msg) {
                 if (is_array($msg)) {
-                    foreach ($msg as $k => $v) $json['data'][$k] = $v;
+                    foreach ($msg as $k => $v) $json[$k] = $v;
                 } elseif (gettype($msg) === 'string') $json['message'] = addslashes(strip_tags($msg));
             }
         }

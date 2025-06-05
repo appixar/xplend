@@ -47,10 +47,24 @@ class Controllers extends Xplend
     public $error_code = false;
     public $res = false;
     //
-    public function error($error = '')
+    public function error($error = '', $error_code = 406)
     {
         $this->error = $error;
+        $this->error_code = $error_code;
         return false;
+    }
+    // required fields
+    public function required($requiredFields, $data)
+    {
+        // CHECK REQUIRED FIELDS
+        if ($requiredFields) {
+            if (is_array($requiredFields)) $fields = $requiredFields;
+            else $fields = explode(",", $requiredFields);
+            foreach ($fields as $field) {
+                $field = trim($field);
+                if (!@$data[$field]) Http::die(400, "Missing required field: $field");
+            }
+        }
     }
     public function res($data = [])
     {

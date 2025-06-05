@@ -3,8 +3,8 @@
 class Job extends Xplend
 {
     private $conf = array(
-        "logDirRequired" => true,
-        "logSys" => true, // dont log sys messages (start,end,etc)
+        "logDirRequired" => false,
+        "logSys" => false, // dont log sys messages (start,end,etc)
         "logMaxSize" => 25, //mb
         "multiProcess" => false
     );
