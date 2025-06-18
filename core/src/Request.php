@@ -26,7 +26,7 @@ class Request extends Xplend
         global $_APP_VAULT, $_SESSION;
 
         if (!extension_loaded('curl')) {
-            Xplend::refreshError("Extension error", "CURL extension is not loaded");
+            Xplend::err("Extension error", "CURL extension is not loaded");
         }
 
         // URL
@@ -37,7 +37,7 @@ class Request extends Xplend
             if ($api_id !== 'http' and $api_id !== 'https') {
                 $endpoint_clean = explode('://', $endpoint)[1];
                 if (@!$_APP_VAULT['API_CLIENT'][$api_id]['DNS']) {
-                    Xplend::refreshError("Request error", "Api client ID not found: $api_id");
+                    Xplend::err("Request error", "Api client ID not found: $api_id");
                 }
                 $url = $_APP_VAULT['API_CLIENT'][$api_id]['DNS'] . '/' . $endpoint_clean;
             }
@@ -61,7 +61,7 @@ class Request extends Xplend
         $headers = array('Content-Type: application/json');
         $headersData = @$_APP_VAULT['API_CLIENT'][$api_id]['HEADERS'];
         if ($headersData and !is_array($headersData)) {
-            Xplend::refreshError("Request error", "Api client headers format error");
+            Xplend::err("Request error", "Api client headers format error");
         }
         // Merge arrays
         if ($headersData) foreach ($headersData as $k => $v) $headers[] = "$k: $v";
