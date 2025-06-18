@@ -335,6 +335,20 @@ class Xplend
         $lastInstance = Builder::getLastInstance();
         if ($lastInstance) return $lastInstance->getPostUrl(); // Chama o método na última instância (atual)
     }
+    private static function getSessionValueByPath($path)
+    {
+        $parts = explode('.', $path);
+        $value = $_SESSION;
+        foreach ($parts as $part) {
+            if (is_array($value) && isset($value[$part])) {
+                $value = $value[$part];
+            } else {
+                return null;
+            }
+        }
+        return $value;
+    }
+
     public static function replaceEnvValues($array)
     {
         global $_ENV;
@@ -342,6 +356,7 @@ class Xplend
             if (is_array($value)) {
                 $value = Xplend::replaceEnvValues($value);
             } elseif ($value) {
+                // ENV
                 preg_match_all('/<ENV\.(.*?)>/', $value, $matches);
                 if (!empty($matches[1])) {
                     foreach ($matches[1] as $match) {
@@ -351,16 +366,18 @@ class Xplend
                         }
                     }
                 }
-                //if (preg_match('/^<SESSION\.(.+)>$/', $headersConf, $matches)) {
+
+                // SESSION
                 preg_match_all('/<SESSION\.(.*?)>/', $value, $matches);
                 if (!empty($matches[1])) {
                     foreach ($matches[1] as $match) {
-                        $sessionValue = @$_SESSION[$match];
+                        $sessionValue = self::getSessionValueByPath($match);
                         if ($sessionValue !== null) {
-                            // is array
-                            if (is_array($sessionValue)) $value = $sessionValue;
-                            // is string
-                            else $value = str_replace('<SESSION.' . $match . '>', $sessionValue, $value);
+                            if (is_array($sessionValue)) {
+                                $value = $sessionValue;
+                            } else {
+                                $value = str_replace('<SESSION.' . $match . '>', $sessionValue, $value);
+                            }
                         }
                     }
                 }
