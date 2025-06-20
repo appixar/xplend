@@ -1,6 +1,7 @@
 const formify = {
     conf: {
-        appendErrorAfterParent: false
+        appendErrorAfterParent: false,
+        scrollToError: true
     },
     init: function (config = {}) {
         formify.conf = config;
@@ -543,7 +544,7 @@ const formify = {
             }
             errorMessageElement.innerText = message;
             // Deslizar o scroll até o elemento com erro
-            errorMessageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (formify.conf.scrollToError) errorMessageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         },
         clearError: function (input) {
             input.classList.remove('error-input');
