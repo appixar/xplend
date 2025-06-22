@@ -158,6 +158,7 @@ class Mason extends Xplend
         // ADD FUNCTION PARAM COLOR DO TEXT
         $colorCode = @$color ? @self::$colors[$color] : '';
         $endColor = @self::$colors['end'];
+        if (is_array($text)) $text = print_r($text, true);
         $formattedText = "{$colorCode}{$text}{$endColor}";
         $formattedText = $timeStamp . $formattedText . PHP_EOL;
         // RETURN 
