@@ -148,7 +148,10 @@ class Mason extends Xplend
         if (is_array($text)) {
             $formattedText = $timeStamp . print_r($text, true) . PHP_EOL;
             if ($returnOnly) return $formattedText;
-            else echo $formattedText;
+            else {
+                echo $formattedText;
+                return;
+            }
         }
         // REPLACE TAG COLORS IN TEXT
         foreach (self::$colors as $k => $v) {
@@ -158,7 +161,6 @@ class Mason extends Xplend
         // ADD FUNCTION PARAM COLOR DO TEXT
         $colorCode = @$color ? @self::$colors[$color] : '';
         $endColor = @self::$colors['end'];
-        if (is_array($text)) $text = print_r($text, true);
         $formattedText = "{$colorCode}{$text}{$endColor}";
         $formattedText = $timeStamp . $formattedText . PHP_EOL;
         // RETURN 
