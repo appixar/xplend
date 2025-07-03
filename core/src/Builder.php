@@ -199,47 +199,47 @@ class Builder extends Xplend
     private function showErrorsInJsonFormat()
     {
         set_error_handler(function ($severity, $message, $file, $line) {
-                if (!(error_reporting() & $severity)) return;
+            if (!(error_reporting() & $severity)) return;
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'error' => 'Internal Server Error',
+                'type' => 'Error',
+                'message' => $message,
+                'file' => basename($file),
+                'line' => $line
+            ]);
+            exit;
+        });
+
+        set_exception_handler(function ($exception) {
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'error' => 'Internal Server Error',
+                'type' => get_class($exception),
+                'message' => $exception->getMessage(),
+                'file' => basename($exception->getFile()),
+                'line' => $exception->getLine()
+            ]);
+            exit;
+        });
+
+        register_shutdown_function(function () {
+            $error = error_get_last();
+            if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
                 http_response_code(500);
                 header('Content-Type: application/json');
                 echo json_encode([
-                    'error' => 'Internal Server Error',
-                    'type' => 'Error',
-                    'message' => $message,
-                    'file' => $file,
-                    'line' => $line
+                    'error' => 'Fatal Error',
+                    'type' => $error['type'],
+                    'message' => $error['message'],
+                    'file' => basename($error['file']),
+                    'line' => $error['line']
                 ]);
                 exit;
-            });
-
-            set_exception_handler(function ($exception) {
-                http_response_code(500);
-                header('Content-Type: application/json');
-                echo json_encode([
-                    'error' => 'Internal Server Error',
-                    'type' => get_class($exception),
-                    'message' => $exception->getMessage(),
-                    'file' => $exception->getFile(),
-                    'line' => $exception->getLine()
-                ]);
-                exit;
-            });
-
-            register_shutdown_function(function () {
-                $error = error_get_last();
-                if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-                    http_response_code(500);
-                    header('Content-Type: application/json');
-                    echo json_encode([
-                        'error' => 'Fatal Error',
-                        'type' => $error['type'],
-                        'message' => $error['message'],
-                        'file' => $error['file'],
-                        'line' => $error['line']
-                    ]);
-                    exit;
-                }
-            });
+            }
+        });
     }
     private function handleApiServer()
     {
