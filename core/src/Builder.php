@@ -196,11 +196,57 @@ class Builder extends Xplend
 
         return $this->getBaseUrl() . "/" . $realRootUri;
     }
+    private function showErrorsInJsonFormat()
+    {
+        set_error_handler(function ($severity, $message, $file, $line) {
+                if (!(error_reporting() & $severity)) return;
+                http_response_code(500);
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'error' => 'Internal Server Error',
+                    'type' => 'Error',
+                    'message' => $message,
+                    'file' => $file,
+                    'line' => $line
+                ]);
+                exit;
+            });
+
+            set_exception_handler(function ($exception) {
+                http_response_code(500);
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'error' => 'Internal Server Error',
+                    'type' => get_class($exception),
+                    'message' => $exception->getMessage(),
+                    'file' => $exception->getFile(),
+                    'line' => $exception->getLine()
+                ]);
+                exit;
+            });
+
+            register_shutdown_function(function () {
+                $error = error_get_last();
+                if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+                    http_response_code(500);
+                    header('Content-Type: application/json');
+                    echo json_encode([
+                        'error' => 'Fatal Error',
+                        'type' => $error['type'],
+                        'message' => $error['message'],
+                        'file' => $error['file'],
+                        'line' => $error['line']
+                    ]);
+                    exit;
+                }
+            });
+    }
     private function handleApiServer()
     {
         global $_APP, $_isAPI, $_HEADER;
         if (@$_APP['API_SERVER']) {
             $_isAPI = true;
+            $this->showErrorsInJsonFormat();
             $this->checkApiServerRoute();
             // IF FOUND ROUTE. STOP HERE.
             if (@$_HEADER or @!$_APP['PAGES']) {

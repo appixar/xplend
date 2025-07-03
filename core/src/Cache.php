@@ -16,7 +16,10 @@ class Cache extends Xplend
                     2.5
                 );
             } else $this->redis->connect(@$_APP_VAULT['CACHE']['HOST'], @$_APP_VAULT['CACHE']['PORT']);
-            if (@$_APP_VAULT['CACHE']['PASS']) $this->redis->auth(['user' => @$_APP_VAULT['CACHE']['USER'], 'pass' => $_APP_VAULT['CACHE']['PASS']]);
+            if (@$_APP_VAULT['CACHE']['PASS']) {
+                if (@$_APP_VAULT['CACHE']['USER']) $this->redis->auth(['user' => @$_APP_VAULT['CACHE']['USER'], 'pass' => $_APP_VAULT['CACHE']['PASS']]);
+                else $this->redis->auth($_APP_VAULT['CACHE']['PASS']);
+            }
             $this->status = true;
         } catch (Exception $e) {
             #echo "Não foi possível conectar ao Redis: ", $e->getMessage();

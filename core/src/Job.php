@@ -283,35 +283,82 @@ class Job extends Xplend
         if (!$filename) $filename = $this->caller_fn;
         return $this->check_file_running($filename);
     }
-    public function checkCpu() {
+    public function checkCpu()
+    {
         return $this->getCpuUsage();
     }
-    public function maxCpu($cpuPercentage) {
+    public function maxCpu($cpuPercentage)
+    {
         $cpuUsage = $this->getCpuUsage();
         if ($cpuUsage > $cpuPercentage) {
             $this->say("✕ CPU usage: {$cpuUsage}% (limit: {$cpuPercentage}%)", 'red');
             exit;
         }
     }
+    public function maxRam($ramPercentage)
+    {
+        $ramUsage = $this->getRamUsage();
+        if ($ramUsage > $ramPercentage) {
+            $this->say("✕ RAM usage: {$ramUsage}% (limit: {$ramPercentage}%)", 'red');
+            exit;
+        }
+    }
+    private function getRamUsage()
+    {
+        $meminfo = file('/proc/meminfo');
+        $memTotal = 0;
+        $memAvailable = 0;
+
+        foreach ($meminfo as $line) {
+            if (strpos($line, 'MemTotal:') === 0) {
+                $memTotal = (int) filter_var($line, FILTER_SANITIZE_NUMBER_INT);
+            }
+            if (strpos($line, 'MemAvailable:') === 0) {
+                $memAvailable = (int) filter_var($line, FILTER_SANITIZE_NUMBER_INT);
+            }
+        }
+
+        if ($memTotal === 0) return 0;
+
+        $memUsed = $memTotal - $memAvailable;
+        $usagePercent = 100 * $memUsed / $memTotal;
+
+        return round($usagePercent, 2);
+    }
     private function getCpuUsage()
     {
-        $stat1 = file_get_contents('/proc/stat');
+        $stat1 = file('/proc/stat');
         usleep(500000); // 0.5 segundo
-        $stat2 = file_get_contents('/proc/stat');
-    
-        $cpu1 = preg_split('/\s+/', explode("\n", $stat1)[0]);
-        $cpu2 = preg_split('/\s+/', explode("\n", $stat2)[0]);
-    
-        $idle1 = $cpu1[4];
-        $idle2 = $cpu2[4];
-    
-        $total1 = array_sum(array_slice($cpu1, 1, 10));
-        $total2 = array_sum(array_slice($cpu2, 1, 10));
-    
-        $totalDiff = $total2 - $total1;
-        $idleDiff = $idle2 - $idle1;
-    
-        $usage = 100 * (1 - ($idleDiff / $totalDiff));
-        return round($usage, 2);
+        $stat2 = file('/proc/stat');
+
+        $cpus1 = array_filter($stat1, fn($line) => strpos($line, 'cpu') === 0);
+        $cpus2 = array_filter($stat2, fn($line) => strpos($line, 'cpu') === 0);
+
+        $totalUsage = 0;
+        $cpuCount = 0;
+
+        foreach ($cpus1 as $i => $line1) {
+            if (!isset($cpus2[$i])) continue;
+
+            $parts1 = preg_split('/\s+/', trim($line1));
+            $parts2 = preg_split('/\s+/', trim($cpus2[$i]));
+
+            $idle1 = $parts1[4] + $parts1[5];
+            $idle2 = $parts2[4] + $parts2[5];
+
+            $total1 = array_sum(array_slice($parts1, 1, 10));
+            $total2 = array_sum(array_slice($parts2, 1, 10));
+
+            $totalDiff = $total2 - $total1;
+            $idleDiff = $idle2 - $idle1;
+
+            if ($totalDiff === 0) continue;
+
+            $usage = 100 * (1 - ($idleDiff / $totalDiff));
+            $totalUsage += $usage;
+            $cpuCount++;
+        }
+
+        return $cpuCount > 0 ? round($totalUsage / $cpuCount, 2) : 0;
     }
 }
