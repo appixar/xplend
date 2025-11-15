@@ -55,14 +55,6 @@ URL_MASK:
 URL_MASK_ALONE: false 
 
 #················································
-# SESSION TIME
-#················································
-SESSION:
-  LIFETIME: 3600 # SEGUNDOS DE INATIVIDADE. 21600=6H, 43200=12H, 86400=24H
-  COOKIE_LIFETIME: 21600 # SE 0 = DESTRUÍDO AO FECHAR BROWSER
-  PROBABILTY: 1 # 1% DE PROBABILIDADE DE REMOVER SESSÕES EXPIRADAS A CADA NOVA SESSÃO INICIADA.
-
-#················································
 # PROJECT MONITOR (https://<project_url>/_sys/dashboard)
 #················································
 MONITOR:

@@ -361,4 +361,15 @@ class Job extends Xplend
 
         return $cpuCount > 0 ? round($totalUsage / $cpuCount, 2) : 0;
     }
+    public function continueIfCpu($cpuPercentage)
+    {
+        tryAgain:
+        $this->check_caller_changes();
+        $cpuUsage = $this->getCpuUsage();
+        if ($cpuUsage > $cpuPercentage) {
+            $this->say("✕ High CPU: {$cpuUsage}%. Trying again...", 'red', false);
+            sleep(1);
+            goto tryAgain;
+        } else $this->say("✔ Low CPU: {$cpuUsage}%. Moving on...", 'green', false);
+    }
 }
