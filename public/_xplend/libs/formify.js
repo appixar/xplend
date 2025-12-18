@@ -47,16 +47,15 @@ const formify = {
     },
     mask: {
         formatInput: function (input, maskType) {
-            let value = input.tagName === 'INPUT' ? input.value : input.textContent; // Corrigido para ler corretamente o valor/textContent baseado no tipo de elemento
+            let value = input.tagName === 'INPUT' ? input.value : input.textContent;
             if (!value) return;
 
             // alphanumeric exceptions
             let exceptions = [];
             if (maskType === 'alphanumeric' && input.getAttribute('mask-except')) {
-                exceptions = [...input.getAttribute('mask-except')]; // Transforma a string em um array de caracteres
+                exceptions = [...input.getAttribute('mask-except')];
             }
 
-            // switch mask types
             switch (maskType) {
                 case 'cpf':
                     value = formify.mask.formatCPF(value);
@@ -80,7 +79,7 @@ const formify = {
                     value = formify.mask.formatPhoneWithArea(value);
                     break;
                 case 'money':
-                    value = formify.mask.formatCurrency(value);
+                    value = formify.mask.formatMoneyInput(input);
                     break;
                 case 'alphanumeric':
                     value = this.formatAlphanumeric(value, exceptions);
@@ -93,8 +92,30 @@ const formify = {
                     break;
             }
             if (input.tagName === 'INPUT') input.value = value;
-            else input.textContent = value; // Atualizar elementos não-input
+            else input.textContent = value;
         },
+
+        // *** NOVO: aplicar máscara em elementos específicos dinamicamente ***
+        applyTo: function (target) {
+            // target pode ser selector, elemento único ou lista/NodeList
+            let elements = [];
+            if (typeof target === 'string') {
+                elements = document.querySelectorAll(target);
+            } else if (target instanceof Element) {
+                elements = [target];
+            } else if (target && typeof target.length !== 'undefined') {
+                elements = target;
+            }
+
+            elements.forEach(el => {
+                const maskType = el.getAttribute && el.getAttribute('mask');
+                if (maskType) {
+                    formify.mask.formatInput(el, maskType);
+                }
+            });
+        },
+        // *** FIM NOVO ***
+
         formatCPF: function (cpf) {
             return cpf.replace(/\D/g, '').slice(0, 11)
                 .replace(/(\d{3})(\d)/, '$1.$2')
@@ -117,14 +138,11 @@ const formify = {
             }
         },
         formatCEP: function (cep) {
-            cep = cep.replace(/\D/g, ''); // Remove tudo o que não é dígito
-            cep = cep.substring(0, 8); // Limita o comprimento a 8 dígitos
-
-            // Insere o hífen após o quinto dígito
+            cep = cep.replace(/\D/g, '');
+            cep = cep.substring(0, 8);
             if (cep.length >= 6) {
                 cep = cep.replace(/^(\d{5})(\d{1,3})/, '$1-$2');
             }
-
             return cep;
         },
         formatPhone: function (phone) {
@@ -139,8 +157,48 @@ const formify = {
             return `(${areaCode}) ${firstPart}-${secondPart}`;
         },
         formatCurrency: function (value) {
-            value = parseFloat(value.replace(/\D/g, '')) / 100;
+            value = parseFloat(String(value).replace(/\D/g, '')) / 100;
+            if (isNaN(value)) return '';
             return value.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        },
+        formatMoneyInput: function (input) {
+            let raw = input.tagName === 'INPUT' ? input.value : input.textContent;
+            raw = String(raw || '');
+
+            // só dígitos
+            const digits = raw.replace(/\D/g, '');
+            if (!digits) return '';
+
+            // centavos -> reais
+            let num = parseFloat(digits) / 100;
+            if (isNaN(num)) return '';
+
+            // min/max em float (reais)
+            const minAttr = input.getAttribute('min');
+            const maxAttr = input.getAttribute('max');
+            const hasMin = minAttr !== null && minAttr !== '';
+            const hasMax = maxAttr !== null && maxAttr !== '';
+
+            if (hasMin) {
+                const min = parseFloat(minAttr);
+                // só aplica min depois que houver pelo menos 3 dígitos (>= 1,00 em cenário normal)
+                if (!isNaN(min) && digits.length >= 3 && num < min) {
+                    num = min;
+                }
+            }
+
+            if (hasMax) {
+                const max = parseFloat(maxAttr);
+                if (!isNaN(max) && num > max) {
+                    num = max;
+                }
+            }
+
+            // formata em pt-BR: 1.234,56
+            return num.toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             });
@@ -158,9 +216,8 @@ const formify = {
             return time.replace(/(\d{2})(\d{2})(\d{2})/, '$1:$2:$3');
         },
         formatDateAgo: function (dateStr, maskRule = null) {
-            // Verificar se a data não foi fornecida ou é inválida
             if (!dateStr || isNaN(Date.parse(dateStr))) {
-                return ""; // Retorna string vazia se a data não for válida
+                return "";
             }
             const now = new Date();
             const date = new Date(dateStr);
@@ -208,10 +265,9 @@ const formify = {
                 const maskType = input.getAttribute('mask');
                 formify.mask.formatInput(input, maskType);
                 if (input.tagName === 'INPUT') {
-                    input.addEventListener('input', () => formify.mask.formatInput(input, maskType)); // Evento de input apenas para inputs
+                    input.addEventListener('input', () => formify.mask.formatInput(input, maskType));
                 }
             });
-            // Adicionar inicialização de 'dateago'
             formify.mask.initDateAgo();
         }
     },
@@ -224,34 +280,31 @@ const formify = {
             const minLength = input.getAttribute('minlength');
             const isSecurePassword = input.classList.contains('secure-password');
 
-            // Validar o atributo required (modificado para funcionar com select)
+            // 1. Validação de Obrigatório
             if (isRequired) {
                 if (isSelect) {
-                    // Para select, verificamos se o valor é vazio ou o valor da primeira opção (geralmente um placeholder)
                     if (!input.value || (input.options.length > 0 && input.selectedIndex === 0 && input.options[0].value === '')) {
                         formify.validator.setError(input, 'Campo obrigatório.');
                         return false;
                     }
                 } else if (!input.value.trim()) {
-                    // Para outros elementos
                     formify.validator.setError(input, 'Campo obrigatório.');
                     return false;
                 }
             }
 
-            // O restante da validação permanece inalterado e se aplica apenas a inputs
             if (!isSelect) {
-                // Validar o atributo required
+                // 2. Validações básicas se não estiver vazio
                 if (isRequired && !input.value.trim()) {
                     formify.validator.setError(input, 'Campo obrigatório.');
                     return false;
                 }
-                // Validar senha segura
+
                 if (isSecurePassword && input.value && !formify.validator.validateSecurePassword(input.value)) {
                     formify.validator.setError(input, 'Senha insegura. Deve conter letras maiúsculas, minúsculas, números, caracteres especiais e no mínimo 6 caracteres.');
                     return false;
                 }
-                // Validar o atributo type
+
                 if (type) {
                     if (type === 'email' && input.value && !formify.validator.validateEmail(input.value)) {
                         formify.validator.setError(input, 'Email inválido.');
@@ -261,12 +314,12 @@ const formify = {
                         return false;
                     }
                 }
-                // Validar minlength
+
                 if (minLength && input.value.length < parseInt(minLength)) {
                     formify.validator.setError(input, `A entrada deve ter no mínimo ${minLength} caracteres.`);
                     return false;
                 }
-                // Validar igualdade de campos com equal-to
+
                 const equalToSelector = input.getAttribute('equal-to');
                 if (equalToSelector) {
                     const equalToElement = document.querySelector(equalToSelector);
@@ -275,46 +328,55 @@ const formify = {
                         return false;
                     }
                 }
-                // Validar máscaras
+
+                // 3. Validação de Máscara (Formato Visual)
                 if (maskType && input.value.trim() && !formify.validator.validateMask(input, maskType)) {
                     let customMessage = '';
                     switch (maskType) {
-                        case 'cpf':
-                            customMessage = 'CPF inválido.';
-                            break;
+                        case 'cpf': customMessage = 'CPF inválido.'; break;
                         case 'cnpj':
-                            if (!formify.validator.validateCNPJ(input.value)) {
-                                customMessage = 'CNPJ inválido.';
-                            }
+                            if (!formify.validator.validateCNPJ(input.value)) customMessage = 'CNPJ inválido.';
                             break;
                         case 'date':
-                            customMessage = 'Data inválida.';
-                            break;
-                        case 'date-br':
-                            customMessage = 'Data inválida.';
-                            break;
-                        case 'phone':
-                            customMessage = 'Número de telefone inválido.';
-                            break;
-                        case 'phone-ddd':
-                            customMessage = 'Número de telefone com DDD inválido.';
-                            break;
-                        case 'money':
-                            customMessage = 'Formato monetário inválido.';
-                            break;
-                        case 'alphanumeric':
-                            customMessage = 'A entrada deve ser alfanumérica e em minúsculas.';
-                            break;
+                        case 'date-br': customMessage = 'Data inválida.'; break;
+                        case 'phone': customMessage = 'Número de telefone inválido.'; break;
+                        case 'phone-ddd': customMessage = 'Número de telefone com DDD inválido.'; break;
+                        case 'money': customMessage = 'Formato monetário inválido.'; break; // Erro apenas de formato visual
+                        case 'alphanumeric': customMessage = 'A entrada deve ser alfanumérica e em minúsculas.'; break;
                         case 'time':
-                        case 'time-sec':
-                            customMessage = 'Horário inválido.';
-                            break;
+                        case 'time-sec': customMessage = 'Horário inválido.'; break;
                     }
                     formify.validator.setError(input, customMessage);
                     return false;
                 }
+
+                // 4. *** CORREÇÃO: Validação de Min/Max ESPECÍFICA para Money ***
+                // Fazemos isso fora do validateMask para dar mensagens de erro corretas
+                if (maskType === 'money' && input.value.trim()) {
+                    const numVal = formify.validator.parseMoneyToFloat(input.value);
+                    const minAttr = input.getAttribute('min');
+                    const maxAttr = input.getAttribute('max');
+
+                    if (!isNaN(numVal)) {
+                        if (minAttr !== null && minAttr !== '') {
+                            const min = parseFloat(minAttr);
+                            if (!isNaN(min) && numVal < min) {
+                                const minStr = min.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                                formify.validator.setError(input, `O valor deve ser no mínimo R$ ${minStr}.`);
+                                return false;
+                            }
+                        }
+                        if (maxAttr !== null && maxAttr !== '') {
+                            const max = parseFloat(maxAttr);
+                            if (!isNaN(max) && numVal > max) {
+                                const maxStr = max.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                                formify.validator.setError(input, `O valor deve ser no máximo R$ ${maxStr}.`);
+                                return false;
+                            }
+                        }
+                    }
+                }
             }
-            // Limpar erro
             formify.validator.clearError(input);
             return true;
         },
@@ -348,26 +410,10 @@ const formify = {
         },
         validateCNPJ: function (cnpj) {
             cnpj = cnpj.replace(/[^\d]+/g, '');
-
             if (cnpj == '') return false;
+            if (cnpj.length != 14) return false;
+            if (cnpj == "00000000000000" || cnpj == "11111111111111" || cnpj == "22222222222222" || cnpj == "33333333333333" || cnpj == "44444444444444" || cnpj == "55555555555555" || cnpj == "66666666666666" || cnpj == "77777777777777" || cnpj == "88888888888888" || cnpj == "99999999999999") return false;
 
-            if (cnpj.length != 14)
-                return false;
-
-            // Elimina CNPJs invalidos conhecidos
-            if (cnpj == "00000000000000" ||
-                cnpj == "11111111111111" ||
-                cnpj == "22222222222222" ||
-                cnpj == "33333333333333" ||
-                cnpj == "44444444444444" ||
-                cnpj == "55555555555555" ||
-                cnpj == "66666666666666" ||
-                cnpj == "77777777777777" ||
-                cnpj == "88888888888888" ||
-                cnpj == "99999999999999")
-                return false;
-
-            // Valida DVs
             let tamanho = cnpj.length - 2
             let numeros = cnpj.substring(0, tamanho);
             let digitos = cnpj.substring(tamanho);
@@ -376,14 +422,11 @@ const formify = {
 
             for (let i = tamanho; i >= 1; i--) {
                 soma += numeros.charAt(tamanho - i) * pos--;
-                if (pos < 2)
-                    pos = 9;
+                if (pos < 2) pos = 9;
             }
 
             let resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
-
-            if (resultado != digitos.charAt(0))
-                return false;
+            if (resultado != digitos.charAt(0)) return false;
 
             tamanho = tamanho + 1;
             numeros = cnpj.substring(0, tamanho);
@@ -392,14 +435,11 @@ const formify = {
 
             for (let i = tamanho; i >= 1; i--) {
                 soma += numeros.charAt(tamanho - i) * pos--;
-                if (pos < 2)
-                    pos = 9;
+                if (pos < 2) pos = 9;
             }
 
             resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
-
-            if (resultado != digitos.charAt(1))
-                return false;
+            if (resultado != digitos.charAt(1)) return false;
 
             return true;
         },
@@ -409,19 +449,16 @@ const formify = {
         },
         validateCPF: function (cpf) {
             cpf = cpf.replace(/\D/g, '');
-
             if (cpf.length !== 11) return false;
-            if (/^(.)\1{10}$/.test(cpf)) return false; // verifica padrões repetidos como "11111111111"
+            if (/^(.)\1{10}$/.test(cpf)) return false;
 
             for (let j = 0; j < 2; j++) {
                 let sum = 0;
                 for (let i = 0; i < 9 + j; i++) {
                     sum += cpf[i] * ((10 + j) - i);
                 }
-
                 let checkDigit = 11 - (sum % 11);
                 if (checkDigit >= 10) checkDigit = 0;
-
                 if (checkDigit !== Number(cpf[9 + j])) return false;
             }
             return true;
@@ -444,27 +481,19 @@ const formify = {
                     return regex.test(value) && formify.validator.validateCPF(value);
                 case 'cnpj':
                     regex = /^\d{2}\.\d{3}\.\d{3}\/\d{4}\-\d{2}$/;
-                    if (regex.test(value)) {
-                        return formify.validator.validateCNPJ(value);
-                    } else {
-                        return false;
-                    }
+                    return regex.test(value) ? formify.validator.validateCNPJ(value) : false;
                 case 'date':
                     regex = /^\d{4}-\d{2}-\d{2}$/;
                     if (regex.test(value)) {
                         const [, year, month, day] = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
                         return formify.validator.isValidDate(+day, +month, +year);
-                    } else {
-                        return false;
-                    }
+                    } else return false;
                 case 'date-br':
                     regex = /^\d{2}\/\d{2}\/\d{4}$/;
                     if (regex.test(value)) {
                         const [, day, month, year] = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
                         return formify.validator.isValidDate(+day, +month, +year);
-                    } else {
-                        return false;
-                    }
+                    } else return false;
                 case 'phone':
                     regex = /^\d{5}-\d{4}$/;
                     break;
@@ -472,8 +501,10 @@ const formify = {
                     regex = /^\(\d{2}\) \d{5}-\d{4}$/;
                     break;
                 case 'money':
+                    // *** CORREÇÃO: Removemos a validação de min/max DAQUI ***
+                    // Aqui validamos apenas se o formato visual está correto (ex: 1.200,50)
                     regex = /^\d{1,3}(\.\d{3})*,\d{2}$/;
-                    break;
+                    return regex.test(value);
                 case 'alphanumeric':
                     regex = /^[a-z0-9]+$/;
                     break;
@@ -482,11 +513,7 @@ const formify = {
                     return regex.test(value) && formify.validator.validateTime(value);
                 case 'time-sec':
                     regex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
-                    if (regex.test(value)) {
-                        return formify.validator.validateTimeWithSec(value);
-                    } else {
-                        return false;
-                    }
+                    return regex.test(value) ? formify.validator.validateTimeWithSec(value) : false;
                 case 'cep':
                     regex = /^\d{5}-\d{3}$/;
                     break;
@@ -502,29 +529,17 @@ const formify = {
         },
         isValidDate: function (day, month, year) {
             if (month < 1 || month > 12) return false;
-
             let daysInMonth;
             switch (month) {
-                case 2:
-                    daysInMonth = formify.validator.isLeapYear(year) ? 29 : 28;
-                    break;
-                case 4:
-                case 6:
-                case 9:
-                case 11:
-                    daysInMonth = 30;
-                    break;
-                default:
-                    daysInMonth = 31;
+                case 2: daysInMonth = formify.validator.isLeapYear(year) ? 29 : 28; break;
+                case 4: case 6: case 9: case 11: daysInMonth = 30; break;
+                default: daysInMonth = 31;
             }
-
             return day > 0 && day <= daysInMonth;
         },
         setError: function (input, message) {
             input.classList.add('error-input');
-            if (input.classList.contains('no-error')) {
-                return; // Encerra a função se o input tiver a classe .no-error
-            }
+            if (input.classList.contains('no-error')) return;
 
             let errorMessageElement;
             if (formify.conf.appendErrorAfterParent) {
@@ -543,7 +558,6 @@ const formify = {
                 }
             }
             errorMessageElement.innerText = message;
-            // Deslizar o scroll até o elemento com erro
             if (formify.conf.scrollToError) errorMessageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         },
         clearError: function (input) {
@@ -559,6 +573,12 @@ const formify = {
                 errorMessageElement.remove();
             }
         },
+        parseMoneyToFloat: function (value) {
+            if (!value) return NaN;
+            const normalized = value.replace(/\./g, '').replace(',', '.');
+            const num = parseFloat(normalized);
+            return isNaN(num) ? NaN : num;
+        },
         init: function () {
             const forms = document.querySelectorAll('form');
             forms.forEach(form => {
@@ -569,12 +589,10 @@ const formify = {
                 });
                 const formElements = form.querySelectorAll('input, select');
                 formElements.forEach(element => {
-                    // Adicionado listener de blur para mostrar erros após saída do campo
                     element.addEventListener('blur', function () {
                         formify.validator.validateInput(element);
                     });
 
-                    // Adicionado listener para limpar erro em tempo real
                     if (element.tagName === 'INPUT') {
                         element.addEventListener('input', function () {
                             if (element.classList.contains('error-input')) {
@@ -592,7 +610,8 @@ const formify = {
             });
         }
     }
-}
+};
+
 //
 // CHECK UNSAVED FORM CHANGES,
 // ... THEN CONFIRM BEFORE LEAVE PAGE
@@ -606,10 +625,33 @@ forms.forEach(function (form) {
 window.addEventListener('beforeunload', function (event) {
     if (formChanged) {
         var confirmationMessage = 'It looks like you have been editing something. If you leave before saving, your changes will be lost.';
-        (event || window.event).returnValue = confirmationMessage; // Cross-browser compatibility (for IE)
+        (event || window.event).returnValue = confirmationMessage;
         return confirmationMessage;
     }
 });
 function isVisible(element) {
     return element.offsetParent !== null;
 }
+
+// *** PATCH jQuery: aplicar máscara sempre que .val() for usado para setar valor ***
+if (window.jQuery) {
+    (function ($) {
+        const originalVal = $.fn.val;
+        $.fn.val = function (value) {
+            // get
+            if (arguments.length === 0) {
+                return originalVal.call(this);
+            }
+            // set
+            const result = originalVal.call(this, value);
+            this.each(function () {
+                const maskType = this.getAttribute && this.getAttribute('mask');
+                if (maskType) {
+                    formify.mask.formatInput(this, maskType);
+                }
+            });
+            return result;
+        };
+    })(jQuery);
+}
+// *** FIM PATCH ***

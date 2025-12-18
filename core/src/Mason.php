@@ -115,6 +115,7 @@ class Mason extends Xplend
         $header_width = 50;
         $header_symbol = "·";
         $_content = "";
+        $timeStamp = "(" . date("H:i:s") . ") ";
 
         // GET COLOR
         $colorCode = @self::$colors[$color];
@@ -126,13 +127,13 @@ class Mason extends Xplend
         }
 
         // OPEN HEADER BAR
-        $_content .= $colorCode . str_repeat($header_symbol, $header_width) . self::$colors['end'] . PHP_EOL;
+        $_content .= $timeStamp . $colorCode . str_repeat($header_symbol, $header_width) . self::$colors['end'] . PHP_EOL;
 
         // TEXT
-        $_content .= $colorCode . $text . self::$colors['end'] . PHP_EOL;
+        $_content .= $timeStamp . $colorCode . $text . self::$colors['end'] . PHP_EOL;
 
         // CLOSE HEADER BAR
-        $_content .= $colorCode . str_repeat($header_symbol, $header_width) . self::$colors['end'] . PHP_EOL;
+        $_content .= $timeStamp . $colorCode . str_repeat($header_symbol, $header_width) . self::$colors['end'] . PHP_EOL;
 
         // ECHO OR RETURN
         if ($returnOnly) {
