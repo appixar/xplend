@@ -41,7 +41,7 @@ class module extends Mason
   {
     // VAR'S
     $repo_url = "https://github.com/appixar/x-" . $module . ".git";
-    $targetDir = self::DIR_MODULES . "/$module";
+    $targetDir = realpath(self::DIR_MODULES) . "/$module";
     //$rootDir = self::DIR_ROOT;
 
     // CHECK REPO
@@ -66,7 +66,6 @@ class module extends Mason
     if ($update) {
 
       // CURRENT VERSION
-      $targetDir = realpath($targetDir);
       $currManifest = json_decode(file_get_contents("$targetDir/manifest.json"), true);
       $currSha = $currManifest['commit']['sha'];
 
@@ -144,7 +143,7 @@ class module extends Mason
     else {
       // CLONE REPO
       shell_exec("rm -rf .tmp");
-      shell_exec("mkdir $targetDir");
+      shell_exec('mkdir "'.$targetDir.'"');
       shell_exec("mkdir .tmp");
       shell_exec("git clone $repo_url .tmp"); //2>&1
       // MOVE README & MANIFEST FROM ROOT -> TO MODULE FOLDER
@@ -294,7 +293,7 @@ class module extends Mason
     shell_exec('find .tmp/ -name "*.git*" -type f -delete');
     // COPY REMAINING FILES
     $listFiles = getDirContents('.tmp/');
-    shell_exec("cp -R .tmp/* $targetDir");
+    shell_exec('cp -R .tmp/* "'.$targetDir.'"');
     $this->say("Copying files...", "magenta");
     $this->say("Target: $targetDir", "magenta");
     $listFilesNew = []; // clean git, etc
